@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">EstudIA</string>
+    <string name="nav_chat">Chat IA</string>
+    <string name="nav_homework">Tareas</string>
+    <string name="nav_study">Estudio</string>
+    <string name="sign_in_google">Continuar con Google</string>
+    <string name="sign_out">Cerrar sesión</string>
+    <string name="reminder_channel_name">Recordatorios de tareas</string>
+    <string name="reminder_channel_desc">Notificaciones programadas para tus tareas y entregas de estudio.</string>
+</resources>

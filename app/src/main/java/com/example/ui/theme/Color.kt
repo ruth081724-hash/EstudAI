@@ -1,0 +1,41 @@
+package com.example.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// Light Editorial Academic Palette
+val IvoryBackground = Color(0xFFFAF8F5)
+val PureSurface = Color(0xFFFFFFFF)
+val WarmSurfaceVariant = Color(0xFFF1EDE6)
+val CobaltPrimary = Color(0xFF1D4ED8)
+val CobaltContainer = Color(0xFFDBEAFE)
+val OnCobaltContainer = Color(0xFF0F296E)
+val AmberSecondary = Color(0xFFD97706)
+val AmberContainer = Color(0xFFFEF3C7)
+val OnAmberContainer = Color(0xFF633100)
+val EmeraldTertiary = Color(0xFF059669)
+val EmeraldContainer = Color(0xFFD1FAE5)
+val OnEmeraldContainer = Color(0xFF024731)
+val InkOnSurface = Color(0xFF111827)
+val SlateOnSurfaceVariant = Color(0xFF4B5563)
+val WarmOutline = Color(0xFFE2DDD4)
+val CrimsonError = Color(0xFFDC2626)
+val CrimsonContainer = Color(0xFFFEE2E2)
+
+// Dark Deep Ink Academic Palette
+val DeepInkBackground = Color(0xFF0B101B)
+val MidnightSurface = Color(0xFF131B2E)
+val MidnightSurfaceVariant = Color(0xFF1D2740)
+val SkyCobaltPrimary = Color(0xFF60A5FA)
+val DeepCobaltContainer = Color(0xFF1E3A8A)
+val SoftSkyOnContainer = Color(0xFFDBEAFE)
+val GoldSecondary = Color(0xFFFBBF24)
+val DeepAmberContainer = Color(0xFF78350F)
+val SoftGoldOnContainer = Color(0xFFFEF3C7)
+val MintTertiary = Color(0xFF34D399)
+val DeepEmeraldContainer = Color(0xFF064E3B)
+val SoftMintOnContainer = Color(0xFFD1FAE5)
+val IvoryOnDarkSurface = Color(0xFFF3F4F6)
+val MistOnDarkVariant = Color(0xFF9CA3AF)
+val MidnightOutline = Color(0xFF2B3755)
+val SoftCoralError = Color(0xFFF87171)
+val DeepCrimsonContainer = Color(0xFF7F1D1D)

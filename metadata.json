@@ -1,0 +1,6 @@
+{
+  "name": "EstudIA",
+  "description": "Asistente de estudio con IA multimodelo, chat por voz y texto, recordatorios de tareas y metodologías de estudio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

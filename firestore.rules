@@ -1,0 +1,230 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Shared Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Helpers ---
+    function isValidConversation(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 120 &&
+             data.modelId is string &&
+             data.modelId in ['gemini-3.8-flash', 'gemini-3.5-flash-lite'] &&
+             data.studyMode is string &&
+             data.studyMode in ['TUTOR', 'SOCRATIC', 'CORNELL', 'WRITING'] &&
+             data.lastMessagePreview is string &&
+             data.lastMessagePreview.size() <= 300;
+    }
+
+    function isValidChatMessage(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.role is string &&
+             data.role in ['user', 'model'] &&
+             data.text is string &&
+             data.text.size() >= 1 &&
+             data.text.size() <= 20000 &&
+             data.modelUsed is string &&
+             data.modelUsed.size() <= 64 &&
+             data.hasImage is bool;
+    }
+
+    function isValidHomeworkTask(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 150 &&
+             data.subject is string &&
+             data.subject.size() >= 1 &&
+             data.subject.size() <= 60 &&
+             data.notes is string &&
+             data.notes.size() <= 1000 &&
+             data.priority is string &&
+             data.priority in ['LOW', 'MEDIUM', 'HIGH'] &&
+             data.dueAtMillis is int &&
+             data.dueAtMillis > 0 &&
+             data.reminderEnabled is bool &&
+             data.reminderAtMillis is int &&
+             data.reminderAtMillis >= 0 &&
+             data.completed is bool;
+    }
+
+    function isValidFlashcardDeck(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 120 &&
+             data.subject is string &&
+             data.subject.size() >= 1 &&
+             data.subject.size() <= 60 &&
+             data.cards is list &&
+             data.cards.size() >= 1 &&
+             data.cards.size() <= 30 &&
+             data.cards[0] is map;
+    }
+
+    function isValidStudySession(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.technique is string &&
+             data.technique in ['POMODORO', 'FEYNMAN', 'CORNELL', 'FLASHCARDS', 'QUIZ'] &&
+             data.topic is string &&
+             data.topic.size() >= 1 &&
+             data.topic.size() <= 150 &&
+             data.durationMinutes is int &&
+             data.durationMinutes >= 0 &&
+             data.durationMinutes <= 240 &&
+             data.scoreOrRating is int &&
+             data.scoreOrRating >= 0 &&
+             data.scoreOrRating <= 100 &&
+             data.summary is string &&
+             data.summary.size() <= 2000;
+    }
+
+    // --- User-Scoped Subcollections ---
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /conversations/{conversationId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(conversationId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(conversationId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'modelId', 'studyMode', 'lastMessagePreview', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'modelId', 'studyMode', 'lastMessagePreview', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidConversation(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(conversationId) &&
+                         isValidConversation(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'modelId', 'studyMode', 'lastMessagePreview', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(conversationId);
+
+        match /messages/{messageId} {
+          allow list: if isOwner(userId) && isValidId(conversationId);
+          allow get: if isOwner(userId) && isValidId(conversationId) && isValidId(messageId);
+
+          allow create: if isOwner(userId) &&
+                           isValidId(conversationId) &&
+                           isValidId(messageId) &&
+                           exists(/databases/$(database)/documents/users/$(userId)/conversations/$(conversationId)) &&
+                           incoming().keys().hasAll(['userId', 'role', 'text', 'modelUsed', 'hasImage', 'createdAt']) &&
+                           incoming().keys().hasOnly(['userId', 'role', 'text', 'modelUsed', 'hasImage', 'createdAt']) &&
+                           incoming().createdAt is timestamp &&
+                           incoming().createdAt <= request.time &&
+                           isValidChatMessage(incoming(), userId);
+
+          allow update: if false;
+          allow delete: if isOwner(userId) && isValidId(conversationId) && isValidId(messageId);
+        }
+      }
+
+      match /homeworkTasks/{taskId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(taskId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'subject', 'notes', 'priority', 'dueAtMillis', 'reminderEnabled', 'reminderAtMillis', 'completed', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'subject', 'notes', 'priority', 'dueAtMillis', 'reminderEnabled', 'reminderAtMillis', 'completed', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidHomeworkTask(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         isValidHomeworkTask(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subject', 'notes', 'priority', 'dueAtMillis', 'reminderEnabled', 'reminderAtMillis', 'completed', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /flashcardDecks/{deckId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(deckId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(deckId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'subject', 'cards', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'subject', 'cards', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidFlashcardDeck(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(deckId) &&
+                         isValidFlashcardDeck(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subject', 'cards', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(deckId);
+      }
+
+      match /studySessions/{sessionId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(sessionId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(sessionId) &&
+                         incoming().keys().hasAll(['userId', 'technique', 'topic', 'durationMinutes', 'scoreOrRating', 'summary', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'technique', 'topic', 'durationMinutes', 'scoreOrRating', 'summary', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidStudySession(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+    }
+  }
+}
